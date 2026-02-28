@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Environment (DB, API keys, SMTP)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build / output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Optional local data (if used)
+data/
+*.sqlite
+*.db
+
+# Coverage / test
+coverage/
+.nyc_output/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+.cache/

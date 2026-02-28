@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>스타트업 지원사업 통합 대시보드</title>
+<meta name="description" content="K-Startup, 서울R&BD, 부산경제진흥원 등 스타트업 지원사업 공고를 한 곳에서 확인">
+<meta name="theme-color" content="#0f1117">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="backdrop"></div>
+
+<div class="layout">
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">S</div>
+      <div class="brand">스타트업 공고<small>Startup Grant Dashboard</small></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-title">메뉴</div>
+        <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span>대시보드</div>
+        <div class="nav-item" data-page="all"><span class="icon">📋</span>전체 공고<span class="badge" id="navBadge">0</span></div>
+        <div class="nav-item" data-page="active"><span class="icon">🟢</span>진행중</div>
+        <div class="nav-item" data-page="closing"><span class="icon">🔴</span>마감임박</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">알림</div>
+        <div class="nav-item" data-page="mailing"><span class="icon">📧</span>메일링 리스트</div>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">정보</div>
+        <div class="nav-item" data-page="sources"><span class="icon">📡</span>수집 가능한 현황</div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="footer-label">데이터 갱신</span>: <span id="lastUpdate">-</span> · 총 <b id="footerTotal">0</b>건
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main">
+    <header class="header">
+      <button class="hamburger" id="hamburger" aria-label="메뉴">☰</button>
+      <div class="search-box">
+        <span class="ico">🔍</span>
+        <input id="searchInput" placeholder="사업명, 기관명, 분류 검색...">
+        <span class="shortcut">Ctrl+F</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" id="csvBtn">📥 CSV</button>
+        <button class="btn btn-primary" id="crawlBtn" style="display:none">📡 데이터 갱신</button>
+        <button class="theme-toggle" id="themeBtn" aria-label="테마 변경">☀️</button>
+        <button class="btn btn-ghost" id="refreshBtn">🔄 새로고침</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="false">
+        <div class="loading-spinner"></div>
+        <span class="loading-text">로딩 중...</span>
+      </div>
+      <!-- Dashboard page -->
+      <div class="content-page" id="pageDashboard">
+      <!-- STATS -->
+      <div class="stats">
+        <div class="stat" data-filter="urgent" tabindex="0">
+          <div class="s-icon">🔴</div>
+          <div class="s-val" id="sUrgent">0</div>
+          <div class="s-lbl">마감임박 D-7</div>
+        </div>
+        <div class="stat" data-filter="week" tabindex="0">
+          <div class="s-icon">📅</div>
+          <div class="s-val" id="sWeek">0</div>
+          <div class="s-lbl">이번주 등록</div>
+          <div class="s-sub" id="sWeekByDay"></div>
+        </div>
+        <div class="stat" data-filter="active" tabindex="0">
+          <div class="s-icon">🟢</div>
+          <div class="s-val" id="sActive">0</div>
+          <div class="s-lbl">진행중</div>
+        </div>
+      </div>
+
+      <!-- 조건 필터 (위젯 ↔ 검색 결과 사이) -->
+      <div class="filter-bar" id="filterBar">
+        <label class="filter-label">상태</label>
+        <select id="filterStatus" class="filter-select" aria-label="상태 필터">
+          <option value="all">전체</option>
+          <option value="active">진행중</option>
+          <option value="urgent">마감임박</option>
+          <option value="closed">마감</option>
+        </select>
+        <label class="filter-label">지역</label>
+        <select id="filterRegion" class="filter-select" aria-label="지역 필터">
+          <option value="all">전체</option>
+        </select>
+        <label class="filter-label">출처</label>
+        <select id="filterSource" class="filter-select" aria-label="출처 필터">
+          <option value="all">전체</option>
+        </select>
+        <label class="filter-label">분류</label>
+        <select id="filterCategory" class="filter-select" aria-label="분류 필터">
+          <option value="all">전체</option>
+        </select>
+        <label class="filter-label">정렬</label>
+        <select id="filterSort" class="filter-select" aria-label="정렬">
+          <option value="마감일자-asc">마감일 ↑</option>
+          <option value="마감일자-desc">마감일 ↓</option>
+          <option value="등록일자-desc">등록일 최신</option>
+          <option value="등록일자-asc">등록일 오래된순</option>
+          <option value="사업명-asc">사업명 가나다</option>
+          <option value="사업명-desc">사업명 가나다 역순</option>
+        </select>
+        <button type="button" class="btn btn-ghost btn-sm" id="filterReset">초기화</button>
+      </div>
+
+      <!-- Active Filters -->
+      <div class="active-filters" id="activeFilters"></div>
+
+      <!-- Table -->
+      <div class="table-card">
+        <div class="table-bar">
+          <div class="count">검색결과 <b id="resultCount">0</b>건<span class="result-sources" id="resultSources"></span></div>
+        </div>
+        <div class="table-scroll">
+          <table aria-label="스타트업 지원사업 공고 목록">
+            <thead>
+              <tr>
+                <th data-sort="마감일자" class="sortable" aria-sort="none">상태 <span class="sort-ico">↕</span></th>
+                <th style="min-width:280px" data-sort="사업명" class="sortable" aria-sort="none">사업명 <span class="sort-ico">↕</span></th>
+                <th data-sort="운영기관" class="sortable" aria-sort="none">운영기관 <span class="sort-ico">↕</span></th>
+                <th data-sort="분류" class="sortable" aria-sort="none">분류 <span class="sort-ico">↕</span></th>
+                <th data-sort="마감일자" class="sortable" aria-sort="none">마감일 <span class="sort-ico">↕</span></th>
+                <th style="width:40px">링크</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pager" id="pager"></div>
+      </div>
+      </div>
+
+      <!-- 수집 가능한 현황 -->
+      <div class="content-page content-page-hidden" id="pageSources">
+        <div class="table-card">
+          <div class="table-bar">
+            <div class="count">수집 가능한 현황</div>
+            <div class="count" style="font-weight:normal;font-size:13px">마지막 전체 갱신: <span id="sourcesLastUpdate">-</span></div>
+          </div>
+          <div class="table-scroll">
+            <table aria-label="수집 가능한 출처 현황">
+              <thead>
+                <tr>
+                  <th style="width:50px">#</th>
+                  <th>출처</th>
+                  <th style="width:120px">상태</th>
+                  <th style="width:150px">갱신 시간</th>
+                  <th style="width:140px">최신 업데이트</th>
+                  <th style="width:90px">갱신</th>
+                </tr>
+              </thead>
+              <tbody id="sourcesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mailing list page -->
+      <div class="content-page content-page-hidden" id="pageMailing">
+        <div class="mailing-card">
+          <h2 class="mailing-title">📧 메일 알림 등록</h2>
+          <p class="mailing-desc">이메일을 등록하면 데이터 갱신 시 메일로 알림을 받을 수 있습니다.</p>
+          <div class="mailing-form">
+            <input type="email" id="mailingEmail" placeholder="example@email.com" class="mailing-input">
+            <button type="button" id="mailingSubmit" class="btn btn-primary">메일 알림 받기</button>
+          </div>
+          <div class="mailing-msg" id="mailingMsg"></div>
+        </div>
+        <div class="table-card">
+          <div class="table-bar">
+            <div class="count">메일링 리스트 <b id="mailingCount">0</b>명</div>
+          </div>
+          <div class="table-scroll">
+            <table aria-label="메일링 리스트">
+              <thead>
+                <tr>
+                  <th style="width:50px">#</th>
+                  <th>이메일</th>
+                  <th style="width:120px">메일 알림</th>
+                  <th style="width:140px">등록일</th>
+                  <th style="width:80px"></th>
+                </tr>
+              </thead>
+              <tbody id="mailingBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Panel -->
+<div class="detail" id="detail">
+  <div class="detail-head">
+    <h3>공고 상세</h3>
+    <button class="detail-x" id="detailClose" aria-label="닫기">✕</button>
+  </div>
+  <div class="detail-body" id="detailBody"></div>
+  <div class="detail-foot">
+    <a class="btn btn-primary" id="detailLink" href="#" target="_blank" rel="noopener">🔗 원문보기</a>
+    <button class="btn btn-ghost" id="detailCopy">📋 복사</button>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- Data from API (DB) -->
+<script src="dashboard.js"></script>
+</body>
+</html>
