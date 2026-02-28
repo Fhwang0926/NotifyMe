@@ -690,7 +690,10 @@
         const cur=btn.dataset.subscribed==='true';
         const next=!cur;
         btn.disabled=true;
-        fetch('/api/mailing/subscribe',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,email,subscribe:next})}).then(r=>r.json()).then(()=>{loadMailingList();}).finally(()=>{btn.disabled=false;});
+        fetch('/api/mailing/subscribe',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||undefined,email:email||undefined,subscribe:next})}).then(r=>r.json()).then(j=>{
+          if(j.ok){ loadMailingList(); toast('✅',j.message||(next?'알림 켜짐':'알림 꺼짐')); }
+          else toast('❌',j.message||'변경 실패');
+        }).catch(()=>{ toast('❌','요청 실패'); }).finally(()=>{btn.disabled=false;});
       });
 
       // detail

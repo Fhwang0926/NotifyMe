@@ -226,7 +226,11 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const { setMailingSubscribed } = await import('./db.js');
-      await setMailingSubscribed(idOrEmail, subscribe);
+      const updated = await setMailingSubscribed(idOrEmail, subscribe);
+      if (!updated) {
+        sendJson(res, 404, { ok: false, message: '해당 이메일을 찾을 수 없습니다.' });
+        return;
+      }
       sendJson(res, 200, { ok: true, message: subscribe ? '메일 알림을 켰습니다.' : '메일 알림을 끄셨습니다.' });
     } catch (e) {
       console.error('메일링 구독 변경 오류:', e);

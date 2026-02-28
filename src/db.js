@@ -168,10 +168,11 @@ export async function upsertMailingEmail(email, subscribed = true) {
 export async function setMailingSubscribed(idOrEmail, subscribed) {
   if (!isConfigured()) return false;
   try {
-    const isId = Number.isInteger(Number(idOrEmail)) && String(idOrEmail).indexOf('@') < 0;
-    const where = isId ? { id: idOrEmail } : { email: String(idOrEmail).trim().toLowerCase() };
-    await MailingList.update({ subscribed }, { where });
-    return true;
+    const str = String(idOrEmail).trim();
+    const isId = /^\d+$/.test(str);
+    const where = isId ? { id: parseInt(str, 10) } : { email: str.toLowerCase() };
+    const [affected] = await MailingList.update({ subscribed }, { where });
+    return affected > 0;
   } catch (e) {
     console.warn('메일링 구독 변경 실패:', e.message);
     return false;
