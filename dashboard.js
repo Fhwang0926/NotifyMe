@@ -681,7 +681,7 @@
         submitBtn.disabled=false;
       });
 
-      // mailing: toggle 알림 (ModSecurity 회피: form k/v 또는 GET 쿼리 사용)
+      // mailing: toggle — GET /api/mailing/toggle?id=123&v=1|0 (본문 없음)
       document.addEventListener('click',e=>{
         const btn=e.target.closest('.mailing-toggle');
         if(!btn)return;
@@ -689,8 +689,8 @@
         const cur=btn.dataset.subscribed==='true';
         const v=cur?'0':'1';
         btn.disabled=true;
-        const body=new URLSearchParams({k:String(id),v}).toString();
-        fetch('/api/mailing/subscribe',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}).then(r=>r.json()).then(j=>{
+        const q=new URLSearchParams({id:String(id),v});
+        fetch('/api/mailing/toggle?'+q.toString()).then(r=>r.json()).then(j=>{
           if(j.ok){ loadMailingList(); toast('✅',j.message||(v==='1'?'알림 켜짐':'알림 꺼짐')); }
           else toast('❌',j.message||'변경 실패');
         }).catch(()=>{ toast('❌','요청 실패'); }).finally(()=>{btn.disabled=false;});

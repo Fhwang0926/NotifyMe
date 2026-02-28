@@ -46,7 +46,7 @@ const MIME = {
 
 const PORT = Number(process.env.WEB_PORT) || 80;
 const HOST = '0.0.0.0';
-const CRAWL_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12시간
+const CRAWL_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24시간
 
 let crawlInProgress = false;
 /** 출처별 개별 갱신 중인 출처명 (한 번에 하나). 새로고침 후에도 GET /api/sources/status 에 포함해 '갱신중' 표시용 */
@@ -207,6 +207,31 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, { ok: true, list });
     } catch (e) {
       console.error('메일링 리스트 조회 오류:', e);
+      sendJson(res, 500, { ok: false, message: e.message });
+    }
+    return;
+  }
+
+  // 메일 알림 켜기/끄기 — GET만 사용, 쿼리: id, v=1|0 (본문 없음, WAF/에러 최소화)
+  if (req.method === 'GET' && url === '/api/mailing/toggle') {
+    const raw = req.url || '';
+    const qs = raw.includes('?') ? new URLSearchParams(raw.slice(raw.indexOf('?') + 1)) : null;
+    const id = qs && qs.get('id');
+    const v = qs && qs.get('v');
+    if (!id || (v !== '1' && v !== '0')) {
+      sendJson(res, 400, { ok: false, message: 'id와 v(1 또는 0)가 필요합니다.' });
+      return;
+    }
+    try {
+      const { setMailingSubscribed } = await import('./db.js');
+      const updated = await setMailingSubscribed(id.trim(), v === '1');
+      if (!updated) {
+        sendJson(res, 404, { ok: false, message: '해당 항목을 찾을 수 없습니다.' });
+        return;
+      }
+      sendJson(res, 200, { ok: true, message: v === '1' ? '메일 알림을 켰습니다.' : '메일 알림을 끄셨습니다.' });
+    } catch (e) {
+      console.error('메일링 토글 오류:', e);
       sendJson(res, 500, { ok: false, message: e.message });
     }
     return;
@@ -389,7 +414,7 @@ async function start() {
     console.log('  GET  /api/mailing/list  — 메일링 리스트');
     console.log('  POST /api/mailing/subscribe — 이메일 등록');
     console.log('  PATCH /api/mailing/subscribe — 메일 알림 켜기/끄기');
-    console.log(`  자동 갱신: 12시간마다 실행 (갱신 시 구독자에게 메일 발송)`);
+    console.log(`  자동 갱신: 24시간마다 실행 (갱신 시 구독자에게 메일 발송)`);
     console.log('종료: Ctrl+C');
   });
 
@@ -406,7 +431,7 @@ async function start() {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  // 12시간마다 데이터 갱신 실행 (갱신 시 메일 발송)
+  // 24시간마다 데이터 갱신 실행 (갱신 시 메일 발송)
   const scheduleCrawl = () => {
     if (crawlInProgress) return;
     console.log('[스케줄] 데이터 갱신 시작...');
