@@ -166,9 +166,25 @@ async function runCrawlAndNotify() {
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = req.url?.replace(/\?.*$/, '') || '/';
+  const requestUrl = req.url || '/';
+  const url = requestUrl.replace(/\?.*$/, '') || '/';
+  const method = req.method || 'GET';
 
-  if (req.method === 'GET' && url === '/api/status') {
+  console.log('[요청]', method, requestUrl);
+
+  let statusCode = 200;
+  const origWriteHead = res.writeHead.bind(res);
+  res.writeHead = function (code, ...args) {
+    statusCode = typeof code === 'number' ? code : 200;
+    return origWriteHead(code, ...args);
+  };
+  const origEnd = res.end.bind(res);
+  res.end = function (...args) {
+    console.log('[응답]', method, url, statusCode);
+    return origEnd.apply(this, args);
+  };
+
+  if (method === 'GET' && url === '/api/status') {
     try {
       const meta = await getCrawlMeta();
       sendJson(res, 200, meta);
@@ -213,7 +229,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 메일 알림 켜기/끄기 — GET만 사용, 쿼리: id, v=1|0 (본문 없음, WAF/에러 최소화)
-  if (req.method === 'GET' && url === '/api/mailing/toggle') {
+  const isTogglePath = url === '/api/mailing/toggle' || url.endsWith('/api/mailing/toggle');
+  if (req.method === 'GET' && isTogglePath) {
     const raw = req.url || '';
     const qs = raw.includes('?') ? new URLSearchParams(raw.slice(raw.indexOf('?') + 1)) : null;
     const id = qs && qs.get('id');
@@ -411,7 +428,8 @@ async function start() {
     console.log('  GET  /api/sources/status — 출처별 수집 상태 (에러/정상 수집중)');
     console.log('  POST /api/crawl         — 데이터 크롤링 실행 (DB 저장)');
     console.log('  POST /api/crawl/source  — 출처별 개별 수집');
-    console.log('  GET  /api/mailing/list  — 메일링 리스트');
+    console.log('  GET  /api/mailing/list   — 메일링 리스트');
+    console.log('  GET  /api/mailing/toggle — 메일 알림 켜기/끄기 (쿼리: id, v=1|0)');
     console.log('  POST /api/mailing/subscribe — 이메일 등록');
     console.log('  PATCH /api/mailing/subscribe — 메일 알림 켜기/끄기');
     console.log(`  자동 갱신: 24시간마다 실행 (갱신 시 구독자에게 메일 발송)`);
