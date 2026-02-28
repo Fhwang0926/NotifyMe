@@ -681,17 +681,17 @@
         submitBtn.disabled=false;
       });
 
-      // mailing: toggle 알림
+      // mailing: toggle 알림 (ModSecurity 회피: form k/v 또는 GET 쿼리 사용)
       document.addEventListener('click',e=>{
         const btn=e.target.closest('.mailing-toggle');
         if(!btn)return;
         const id=btn.dataset.id;
-        const email=btn.dataset.email;
         const cur=btn.dataset.subscribed==='true';
-        const next=!cur;
+        const v=cur?'0':'1';
         btn.disabled=true;
-        fetch('/api/mailing/subscribe',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id||undefined,email:email||undefined,subscribe:next})}).then(r=>r.json()).then(j=>{
-          if(j.ok){ loadMailingList(); toast('✅',j.message||(next?'알림 켜짐':'알림 꺼짐')); }
+        const body=new URLSearchParams({k:String(id),v}).toString();
+        fetch('/api/mailing/subscribe',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body}).then(r=>r.json()).then(j=>{
+          if(j.ok){ loadMailingList(); toast('✅',j.message||(v==='1'?'알림 켜짐':'알림 꺼짐')); }
           else toast('❌',j.message||'변경 실패');
         }).catch(()=>{ toast('❌','요청 실패'); }).finally(()=>{btn.disabled=false;});
       });

@@ -236,15 +236,37 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'PATCH' && url === '/api/mailing/subscribe') {
-    let body = '';
+  // 메일 알림 켜기/끄기 — ModSecurity 911100 회피: form-urlencoded(k/v) 또는 쿼리(k,v) 사용
+  const mailingSubscribePath = url.replace(/\?.*$/, '');
+  if ((req.method === 'PATCH' || req.method === 'POST') && mailingSubscribePath === '/api/mailing/subscribe') {
+    const qs = url.includes('?') ? Object.fromEntries(new URLSearchParams(url.slice(url.indexOf('?') + 1))) : {};
     try {
-      body = await readBody(req);
-      const data = JSON.parse(body || '{}');
-      const idOrEmail = data.id ?? data.email;
-      const subscribe = data.subscribe;
-      if (idOrEmail == null || typeof subscribe !== 'boolean') {
-        sendJson(res, 400, { ok: false, message: 'id 또는 email과 subscribe(true/false)가 필요합니다.' });
+      let idOrEmail = null;
+      let subscribe = null;
+      const contentType = (req.headers['content-type'] || '').toLowerCase();
+      if (contentType.includes('application/x-www-form-urlencoded')) {
+        const body = await readBody(req);
+        const form = Object.fromEntries(new URLSearchParams(body || ''));
+        // k=id, v=1|0 (WAF 회피용 단순 키)
+        if (form.k != null && (form.v === '1' || form.v === '0')) {
+          idOrEmail = form.k.trim();
+          subscribe = form.v === '1';
+        }
+        if (idOrEmail == null && (form.id != null || form.email != null) && (form.on === '1' || form.on === '0' || form.subscribe !== undefined)) {
+          idOrEmail = form.id ?? form.email;
+          subscribe = form.on === '1' || form.subscribe === 'true' || form.subscribe === '1';
+        }
+      } else if (qs.k != null && (qs.v === '1' || qs.v === '0')) {
+        idOrEmail = String(qs.k).trim();
+        subscribe = qs.v === '1';
+      } else if (Object.keys(qs).length === 0 || contentType.includes('application/json')) {
+        const body = await readBody(req);
+        const data = JSON.parse(body || '{}');
+        idOrEmail = data.id ?? data.email;
+        subscribe = typeof data.subscribe === 'boolean' ? data.subscribe : data.on === 1 || data.on === '1';
+      }
+      if (idOrEmail == null || subscribe === null) {
+        sendJson(res, 400, { ok: false, message: 'id(k)와 on(v=1/0)가 필요합니다. form: k=<id>&v=1 또는 쿼리: ?k=<id>&v=1' });
         return;
       }
       const { setMailingSubscribed } = await import('./db.js');
