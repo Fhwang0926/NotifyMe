@@ -212,70 +212,67 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && url === '/api/mailing/subscribe') {
-    let body = '';
-    try {
-      body = await readBody(req);
-      const data = JSON.parse(body || '{}');
-      const email = data.email;
-      const subscribe = data.subscribe !== false;
-      if (!email) {
-        sendJson(res, 400, { ok: false, message: '이메일을 입력하세요.' });
-        return;
-      }
-      const { upsertMailingEmail } = await import('./db.js');
-      const result = await upsertMailingEmail(email, subscribe);
-      sendJson(res, 200, result);
-    } catch (e) {
-      if (e instanceof SyntaxError) sendJson(res, 400, { ok: false, message: '잘못된 요청입니다.' });
-      else {
-        console.error('메일링 등록 오류:', e);
-        sendJson(res, 500, { ok: false, message: e.message });
-      }
-    }
-    return;
-  }
-
-  // 메일 알림 켜기/끄기 — ModSecurity 911100 회피: form-urlencoded(k/v) 또는 쿼리(k,v) 사용
+  // /api/mailing/subscribe: 토글(k/v) 먼저 처리 → form body가 등록 핸들러에서 JSON으로 파싱되는 것 방지
   const mailingSubscribePath = url.replace(/\?.*$/, '');
   if ((req.method === 'PATCH' || req.method === 'POST') && mailingSubscribePath === '/api/mailing/subscribe') {
     const qs = url.includes('?') ? Object.fromEntries(new URLSearchParams(url.slice(url.indexOf('?') + 1))) : {};
     try {
       let idOrEmail = null;
       let subscribe = null;
+      let isToggle = false;
       const contentType = (req.headers['content-type'] || '').toLowerCase();
       if (contentType.includes('application/x-www-form-urlencoded')) {
         const body = await readBody(req);
         const form = Object.fromEntries(new URLSearchParams(body || ''));
-        // k=id, v=1|0 (WAF 회피용 단순 키)
         if (form.k != null && (form.v === '1' || form.v === '0')) {
           idOrEmail = form.k.trim();
           subscribe = form.v === '1';
+          isToggle = true;
         }
-        if (idOrEmail == null && (form.id != null || form.email != null) && (form.on === '1' || form.on === '0' || form.subscribe !== undefined)) {
+        if (!isToggle && (form.id != null || form.email != null) && (form.on === '1' || form.on === '0' || form.subscribe !== undefined)) {
           idOrEmail = form.id ?? form.email;
           subscribe = form.on === '1' || form.subscribe === 'true' || form.subscribe === '1';
+          isToggle = true;
         }
       } else if (qs.k != null && (qs.v === '1' || qs.v === '0')) {
         idOrEmail = String(qs.k).trim();
         subscribe = qs.v === '1';
-      } else if (Object.keys(qs).length === 0 || contentType.includes('application/json')) {
+        isToggle = true;
+      } else if (contentType.includes('application/json')) {
         const body = await readBody(req);
         const data = JSON.parse(body || '{}');
-        idOrEmail = data.id ?? data.email;
-        subscribe = typeof data.subscribe === 'boolean' ? data.subscribe : data.on === 1 || data.on === '1';
+        if (data.id != null || data.k != null) {
+          idOrEmail = data.id ?? data.k;
+          subscribe = typeof data.subscribe === 'boolean' ? data.subscribe : data.on === 1 || data.on === '1';
+          isToggle = true;
+        } else if (data.email != null) {
+          const email = String(data.email).trim();
+          const sub = data.subscribe !== false;
+          if (!email) {
+            sendJson(res, 400, { ok: false, message: '이메일을 입력하세요.' });
+            return;
+          }
+          const { upsertMailingEmail } = await import('./db.js');
+          const result = await upsertMailingEmail(email, sub);
+          sendJson(res, 200, result);
+          return;
+        }
       }
-      if (idOrEmail == null || subscribe === null) {
-        sendJson(res, 400, { ok: false, message: 'id(k)와 on(v=1/0)가 필요합니다. form: k=<id>&v=1 또는 쿼리: ?k=<id>&v=1' });
+      if (isToggle && idOrEmail != null && subscribe !== null) {
+        const { setMailingSubscribed } = await import('./db.js');
+        const updated = await setMailingSubscribed(idOrEmail, subscribe);
+        if (!updated) {
+          sendJson(res, 404, { ok: false, message: '해당 이메일을 찾을 수 없습니다.' });
+          return;
+        }
+        sendJson(res, 200, { ok: true, message: subscribe ? '메일 알림을 켰습니다.' : '메일 알림을 끄셨습니다.' });
         return;
       }
-      const { setMailingSubscribed } = await import('./db.js');
-      const updated = await setMailingSubscribed(idOrEmail, subscribe);
-      if (!updated) {
-        sendJson(res, 404, { ok: false, message: '해당 이메일을 찾을 수 없습니다.' });
+      if (!isToggle && !contentType.includes('application/json')) {
+        sendJson(res, 400, { ok: false, message: 'id(k)와 on(v=1/0)가 필요합니다. form: k=<id>&v=1' });
         return;
       }
-      sendJson(res, 200, { ok: true, message: subscribe ? '메일 알림을 켰습니다.' : '메일 알림을 끄셨습니다.' });
+      sendJson(res, 400, { ok: false, message: 'id(k)와 on(v=1/0)가 필요합니다. form: k=<id>&v=1 또는 쿼리: ?k=<id>&v=1' });
     } catch (e) {
       console.error('메일링 구독 변경 오류:', e);
       sendJson(res, 500, { ok: false, message: e.message });
