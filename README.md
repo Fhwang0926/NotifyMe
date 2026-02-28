@@ -230,3 +230,4 @@ WEB_PORT=8080 npm start
 - `index.html`을 파일로 열면 데이터가 없습니다. **반드시 `npm start` 후 브라우저에서 http://localhost (기본 포트 80) 으로 접속**하세요.
 
 ---
+1
