@@ -44,7 +44,8 @@ const MIME = {
   '.ico': 'image/x-icon',
 };
 
-const PORT = Number(process.env.WEB_PORT) || 8080;
+const PORT = Number(process.env.WEB_PORT) || 80;
+const HOST = '0.0.0.0';
 const CRAWL_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12시간
 
 let crawlInProgress = false;
@@ -333,8 +334,8 @@ async function start() {
     process.exit(1);
   }
 
-  server.listen(PORT, () => {
-    console.log(`대시보드: http://localhost:${PORT}`);
+  server.listen(PORT, HOST, () => {
+    console.log(`대시보드: http://0.0.0.0:${PORT} (http://localhost:${PORT})`);
     console.log('  GET  /api/status         — 마지막 갱신 시각/건수 (DB)');
     console.log('  GET  /api/data           — 크롤 데이터 목록 (DB)');
     console.log('  GET  /api/sources/status — 출처별 수집 상태 (에러/정상 수집중)');

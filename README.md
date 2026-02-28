@@ -81,7 +81,7 @@ npm install
 
 ```bash
 npm start
-# 브라우저에서 http://localhost:8080 접속 후 "데이터 갱신" 클릭
+# 브라우저에서 http://localhost 접속 후 "데이터 갱신" 클릭 (기본 포트 80)
 ```
 
 **방법 B — 터미널에서 직접 실행**
@@ -116,14 +116,14 @@ npm run validate -- <파일경로>
 npm start
 ```
 
-- 브라우저에서 **http://localhost:8080** 접속
+- 브라우저에서 **http://localhost** 접속 (기본 포트 80, `WEB_PORT`로 변경 가능)
 - **데이터 갱신**: 사이드바 하단에 **「데이터 갱신: YYYY-MM-DD HH:mm」** 로 마지막 크롤 시각 표시
 - **📡 데이터 갱신** 버튼으로 서버에서 크롤링 실행 후 자동 반영
 
 포트 변경 시:
 
 ```bash
-WEB_PORT=3000 npm start
+WEB_PORT=8080 npm start
 ```
 
 **방법 B — 파일 직접 열기**  
@@ -179,7 +179,7 @@ WEB_PORT=3000 npm start
 |------|------|
 | `CRAWLER_VERIFY_SSL` | `1` 또는 `true` 시 HTTPS 인증서 검증 (기본: 비활성화, 일부 사이트 호환) |
 | `CRAWLER_KEYWORD_FILTER` | `1` 또는 `true` 시 수집 후 키워드 필터 적용 |
-| `WEB_PORT` | 대시보드 **웹 서버** 포트 (기본 8080). 브라우저 접속 포트 |
+| `WEB_PORT` | 대시보드 **웹 서버** 포트 (기본 80). 0.0.0.0에 바인드되어 외부 접속 가능 |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | **(필수)** MariaDB 접속 정보. `DB_PORT`는 MariaDB 포트(기본 3306). 미설정 시 서버·크롤러 기동 안 함 |
 | `K_STARTUP_API_KEY` | **(필수)** 공공데이터포털 K-Startup API 서비스 키. 미설정 시 서버 기동 안 함 |
 | `DATA_GO_KR_BUSINESS_API_URL` | (선택) 사업공고 API URL. 미설정 시 `getAnnouncementInformation01` 사용 |
@@ -212,6 +212,6 @@ WEB_PORT=3000 npm start
 
 - 크롤러 실행 시 각 사이트에 HTTP 요청을 보내므로 **네트워크 연결**이 필요합니다.
 - **SSL 검증**: 크롤 시 기본적으로 인증서 검증을 하지 않습니다 (일부 사이트에서 오류 방지). 검증을 쓰려면 `CRAWLER_VERIFY_SSL=1`로 설정하세요.
-- `index.html`을 파일로 열면 데이터가 없습니다. **반드시 `npm start` 후 브라우저에서 http://localhost:8080 으로 접속**하세요.
+- `index.html`을 파일로 열면 데이터가 없습니다. **반드시 `npm start` 후 브라우저에서 http://localhost (기본 포트 80) 으로 접속**하세요.
 
 ---
