@@ -66,47 +66,69 @@ function readBody(req) {
   });
 }
 
+/** 등록일자 문자열(YYYY-MM-DD 등)이 최근 N일 이내인지 */
+function isWithinDays(regStr, days = 7) {
+  if (!regStr || typeof regStr !== 'string') return false;
+  const m = regStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return false;
+  const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const diff = Math.floor((now - d) / 864e5);
+  return diff >= 0 && diff <= days;
+}
+
 /**
- * 갱신 결과 메일 본문 생성 — 총 건수 + 최근 10건 예시(제목, URL, 출처, 마감일자)
+ * 갱신 결과 메일 본문 — 전체 건수 요약 + 최근 7일 이내 등록된 공고만 안내
  */
 function buildCrawlMailContent(records) {
   const total = records.length;
-  const sorted = [...records].sort((a, b) => {
-    const da = a['마감일자'] || a['등록일자'] || '';
-    const db = b['마감일자'] || b['등록일자'] || '';
-    if (!da && !db) return 0;
-    if (!da) return 1;
-    if (!db) return -1;
-    return da.localeCompare(db);
+  const recent = records.filter((r) => isWithinDays(r['등록일자'], 7));
+  const recentSorted = [...recent].sort((a, b) => {
+    const da = a['등록일자'] || '';
+    const db = b['등록일자'] || '';
+    return db.localeCompare(da);
   });
-  const top10 = sorted.slice(0, 10);
+  const list = recentSorted.slice(0, 15);
+  const recentCount = recent.length;
 
-  let text = `스타트업 지원사업 공고가 갱신되었습니다.\n\n총 ${total}건의 공고가 수집되었습니다.\n\n`;
-  text += '■ 최근 예시 공고 (10건)\n\n';
-  top10.forEach((r, i) => {
-    const title = r['사업명'] || '(제목 없음)';
-    const link = r['공고링크'] || '';
-    const source = r['출처'] || '';
-    const end = r['마감일자'] || '-';
-    text += `${i + 1}. ${title}\n   출처: ${source} | 마감: ${end}\n   ${link || '-'}\n\n`;
-  });
-  text += '\n대시보드에서 전체 목록을 확인하세요.';
+  let text = `스타트업 지원사업 공고가 갱신되었습니다.\n\n총 ${total}건 수집. 그 중 최근 7일 이내 등록된 공고는 ${recentCount}건입니다.\n\n`;
+  if (list.length) {
+    text += '■ 최근 등록 공고\n\n';
+    list.forEach((r, i) => {
+      const title = r['사업명'] || '(제목 없음)';
+      const link = r['공고링크'] || '';
+      const source = r['출처'] || '';
+      const reg = r['등록일자'] || '-';
+      const end = r['마감일자'] || '-';
+      text += `${i + 1}. ${title}\n   출처: ${source} | 등록: ${reg} | 마감: ${end}\n   ${link || '-'}\n\n`;
+    });
+  } else {
+    text += '이번 갱신에 최근 7일 이내 등록된 공고는 없습니다.\n\n';
+  }
+  text += '대시보드에서 전체 목록을 확인하세요.';
 
-  let html = `<p>스타트업 지원사업 공고가 갱신되었습니다.</p><p><strong>총 ${total}건</strong>의 공고가 수집되었습니다.</p>`;
-  html += '<h3 style="margin-top:20px;font-size:14px;">■ 최근 예시 공고 (10건)</h3><ul style="list-style:none;padding:0;margin:8px 0;">';
-  top10.forEach((r, i) => {
-    const title = (r['사업명'] || '(제목 없음)').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const link = (r['공고링크'] || '').trim();
-    const isUrl = link.startsWith('http://') || link.startsWith('https://');
-    const source = (r['출처'] || '').replace(/</g, '&lt;');
-    const end = (r['마감일자'] || '-').replace(/</g, '&lt;');
-    const linkDisplay = isUrl
-      ? `<a href="${link.replace(/"/g, '&quot;')}" style="font-size:12px;">${link}</a>`
-      : '<span style="font-size:12px;color:#888;">링크 없음</span>';
-    html += `<li style="margin-bottom:12px;padding:8px 0;border-bottom:1px solid #eee;"><strong>${i + 1}. ${title}</strong><br/><span style="color:#666;font-size:12px;">출처: ${source} | 마감: ${end}</span><br/>${linkDisplay}</li>`;
-  });
-  html += '</ul><p style="margin-top:16px;"><a href="#">대시보드에서 전체 목록 확인</a></p>';
-  return { text, html };
+  let html = `<p>스타트업 지원사업 공고가 갱신되었습니다.</p><p><strong>총 ${total}건</strong> 수집. 그 중 <strong>최근 7일 이내 등록</strong>된 공고는 <strong>${recentCount}건</strong>입니다.</p>`;
+  if (list.length) {
+    html += '<h3 style="margin-top:20px;font-size:14px;">■ 최근 등록 공고</h3><ul style="list-style:none;padding:0;margin:8px 0;">';
+    list.forEach((r, i) => {
+      const title = (r['사업명'] || '(제목 없음)').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const link = (r['공고링크'] || '').trim();
+      const isUrl = link.startsWith('http://') || link.startsWith('https://');
+      const source = (r['출처'] || '').replace(/</g, '&lt;');
+      const reg = (r['등록일자'] || '-').replace(/</g, '&lt;');
+      const end = (r['마감일자'] || '-').replace(/</g, '&lt;');
+      const linkDisplay = isUrl
+        ? `<a href="${link.replace(/"/g, '&quot;')}" style="font-size:12px;">${link}</a>`
+        : '<span style="font-size:12px;color:#888;">링크 없음</span>';
+      html += `<li style="margin-bottom:12px;padding:8px 0;border-bottom:1px solid #eee;"><strong>${i + 1}. ${title}</strong><br/><span style="color:#666;font-size:12px;">출처: ${source} | 등록: ${reg} | 마감: ${end}</span><br/>${linkDisplay}</li>`;
+    });
+    html += '</ul>';
+  } else {
+    html += '<p style="color:#666;">이번 갱신에 최근 7일 이내 등록된 공고는 없습니다.</p>';
+  }
+  html += '<p style="margin-top:16px;"><a href="#">대시보드에서 전체 목록 확인</a></p>';
+  return { text, html, recentCount };
 }
 
 /**
@@ -127,8 +149,8 @@ async function runCrawlAndNotify() {
     if (isMailConfigured() && records.length) {
       const emails = await getSubscribedEmails();
       if (emails.length) {
-        const subject = `[스타트업 공고] 데이터 갱신 완료 (${records.length}건)`;
-        const { text, html } = buildCrawlMailContent(records);
+        const { text, html, recentCount } = buildCrawlMailContent(records);
+        const subject = `[스타트업 공고] 갱신 완료 (전체 ${records.length}건, 최근 등록 ${recentCount}건)`;
         const r = await sendMail(emails, subject, text, html);
         if (r.ok) console.log('메일 알림 발송:', emails.length, '명');
         else console.warn('메일 알림 실패:', r.message);
