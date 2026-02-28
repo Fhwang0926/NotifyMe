@@ -1,0 +1,26 @@
+# main 브랜치 push 시 웹훅 호출 (배포 서버 알림 등)
+name: Webhook on push (main)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "DEPLOY_WEBHOOK_URL secret not set, skipping webhook."
+            exit 0
+          fi
+          curl -sS -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.YOUR_API_KEY }}" \
+            -H "X-GitHub-Event: push" \
+            -H "X-GitHub-Delivery: ${{ github.run_id }}" \
+            -d '{"ref":"${{ github.ref }}","branch":"${{ github.ref_name }}","repository":"${{ github.repository }}","sha":"${{ github.sha }}","pusher":"${{ github.actor }}","event":"push"}' \
+            --max-time 30 || true

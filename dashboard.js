@@ -81,6 +81,8 @@
         fillFilterOptions();
         applyFilters();
         bind();
+        const badge=$('navBadge');
+        if(badge)badge.textContent=allData.length;
         checkCrawlApi();
       } catch(e) {
         tableBody.innerHTML='<tr><td colspan="7"><div class="empty"><div class="e-icon">📭</div><div class="e-title">서버에서 데이터를 불러오세요</div><div class="e-desc">npm start 후 이 페이지를 새로고침하세요.</div></div></td></tr>';
@@ -132,7 +134,6 @@
       weekTableRows.push('</tr>');
       sWeekByDay.innerHTML='<table class="week-table" aria-label="이번주 요일별 등록"><tbody>'+weekTableRows.join('')+'</tbody></table>';
       sWeekByDay.style.display='block';
-      $('navBadge').textContent=allData.length;
     }
     
     // ═══ CHIPS (removed) ───
@@ -520,16 +521,57 @@
     
     // ═══ EVENTS ═══
     function bind(){
-      // hamburger
-      $('hamburger').addEventListener('click',()=>{
-        $('sidebar').classList.toggle('open');
-        $('backdrop').classList.toggle('show');
+      // 햄버거 (모바일: 사이드바 열기/닫기)
+      const hamburger=$('hamburger');
+      const backdrop=$('backdrop');
+      if(hamburger){
+        hamburger.addEventListener('click',()=>{
+          $('sidebar').classList.toggle('open');
+          if(backdrop)backdrop.classList.toggle('show');
+          hamburger.setAttribute('aria-expanded',$('sidebar').classList.contains('open'));
+        });
+      }
+      if(backdrop){
+        backdrop.addEventListener('click',()=>{
+          $('sidebar').classList.remove('open');
+          backdrop.classList.remove('show');
+          if(hamburger)hamburger.setAttribute('aria-expanded','false');
+        });
+      }
+
+      // 왼쪽 메뉴 (전체 공고 / 진행중 / 마감임박 / 메일링 / 수집 현황)
+      function closeSidebarIfOpen(){
+        const sb=$('sidebar');
+        if(sb&&sb.classList.contains('open')){ sb.classList.remove('open'); if($('backdrop'))$('backdrop').classList.remove('show'); if($('hamburger'))$('hamburger').setAttribute('aria-expanded','false'); }
+      }
+      $$('.sidebar-nav .nav-item[data-page]').forEach(item=>{
+        item.addEventListener('click',()=>{
+          $$('.sidebar-nav .nav-item[data-page]').forEach(n=>n.classList.remove('active'));
+          item.classList.add('active');
+          const pg=item.dataset.page;
+          if(pg==='mailing'){
+            showPage('mailing');
+            loadMailingList();
+            closeSidebarIfOpen();
+            return;
+          }
+          if(pg==='sources'){
+            showPage('sources');
+            closeSidebarIfOpen();
+            return;
+          }
+          showPage('dashboard');
+          cardFilter=null;statusFilter='all';regionFilter='all';searchQ='';
+          $$('.stat').forEach(c=>c.classList.remove('selected'));
+          if($('searchInput'))$('searchInput').value='';
+          if(pg==='active'){statusFilter='active';const sel=$('filterStatus');if(sel)sel.value='active';}
+          else if(pg==='closing'){cardFilter='urgent';statusFilter='urgent';$$('.stat').forEach(c=>c.classList.remove('selected'));const urgentStat=document.querySelector('.stat[data-filter="urgent"]');if(urgentStat)urgentStat.classList.add('selected');const sel=$('filterStatus');if(sel)sel.value='urgent';}
+          applyFilters();
+          closeSidebarIfOpen();
+        });
+        item.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ')e.target.click(); });
       });
-      $('backdrop').addEventListener('click',()=>{
-        $('sidebar').classList.remove('open');
-        $('backdrop').classList.remove('show');
-      });
-    
+
       // stat cards
     
       $$('.stat').forEach(el=>{
@@ -547,41 +589,6 @@
           applyFilters();
           var filterBar=$('filterBar');
           if(filterBar)filterBar.scrollIntoView({behavior:'smooth',block:'start'});
-        });
-      });
-    
-      // chips (removed)
-      // sidebar sources (removed)
-
-      // sidebar nav
-    
-      $$('.nav-item[data-page]').forEach(item=>{
-        item.addEventListener('click',()=>{
-
-          $$('.nav-item[data-page]').forEach(n=>n.classList.remove('active'));
-          item.classList.add('active');
-          const pg=item.dataset.page;
-
-          if(pg==='mailing'){
-            showPage('mailing');
-            loadMailingList();
-            $('sidebar').classList.remove('open');$('backdrop').classList.remove('show');
-            return;
-          }
-          if(pg==='sources'){
-            showPage('sources');
-            $('sidebar').classList.remove('open');$('backdrop').classList.remove('show');
-            return;
-          }
-
-          showPage('dashboard');
-          cardFilter=null;statusFilter='all';regionFilter='all';searchQ='';
-          $$('.stat').forEach(c=>c.classList.remove('selected'));
-          $('searchInput').value='';
-          if(pg==='active'){statusFilter='active'}
-          else if(pg==='closing'){cardFilter='urgent';const urgentStat=document.querySelector('.stat[data-filter="urgent"]');if(urgentStat)urgentStat.classList.add('selected')}
-          applyFilters();
-          $('sidebar').classList.remove('open');$('backdrop').classList.remove('show');
         });
       });
     

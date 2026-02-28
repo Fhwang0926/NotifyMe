@@ -1,5 +1,7 @@
 # 🚀 스타트업 지원사업 통합 대시보드
 
+**▶ [데모 보기](https://notifyme.awen.3vi.co.kr/)** — 실제 동작을 브라우저에서 확인할 수 있습니다.
+
 K-Startup, 서울R&BD, 부산경제진흥원 등 국내 주요 스타트업 지원사업 공고를 자동 수집하고, 웹 대시보드로 한눈에 확인할 수 있는 통합 시스템입니다.
 
 **런타임: Node.js 18+** (크롤러·검증·로컬 서버)
@@ -195,6 +197,19 @@ WEB_PORT=8080 npm start
 - 저장소에는 **`.env.sample`** 만 포함됩니다. 실제 비밀번호·API 키는 이 파일에 넣지 마세요.
 - 로컬에서 `cp .env.sample .env` 후 **`.env`** 에만 실제 값을 설정하고, `.env`는 절대 커밋하지 마세요.
 - 이미 `.env`를 커밋했다면 `git rm --cached .env` 후 DB 비밀번호·API 키를 재발급하는 것을 권장합니다.
+
+---
+
+## 🔔 GitHub Actions (main push 웹훅)
+
+`main` 브랜치에 push되면 웹훅 URL로 POST 요청을 보냅니다. (배포 서버 알림·자동 배포 트리거 등)
+
+- **워크플로**: `.github/workflows/webhook-on-push.yml`
+- **트리거**: `push` to `main`
+- **시크릿**: 저장소 **Settings → Secrets and variables → Actions** 에서 `DEPLOY_WEBHOOK_URL` 추가 (웹훅 수신 URL)
+- **페이로드**: JSON `{ "ref", "branch", "repository", "sha", "pusher", "event": "push" }`, 헤더 `X-GitHub-Event: push`
+
+`DEPLOY_WEBHOOK_URL`을 설정하지 않으면 웹훅 단계는 건너뜁니다.
 
 ---
 
